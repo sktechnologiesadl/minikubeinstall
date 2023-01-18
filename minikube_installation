@@ -1,0 +1,130 @@
+##################################################################################################
+
+Minikube Installation:
+----------------------
+Phase-01:-
+################################################################################################
+step-01: Update the system 
+	apt update -y
+
+step-02: Install the Docker 
+	apt install -y docker.io
+
+step-03: Install the Kubectl
+	curl -LO https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl
+	chmod +x kubectl
+	sudo mv kubectl /usr/local/bin/
+
+step-04: Install the Minikube 
+	curl -Lo minikube https://storage.googleapis.com/minikube/release/latest/minikube-linux-amd64 
+	chmod +x minikube 
+	sudo mv minikube /usr/local/bin
+step-05: Install the conntrack 
+	apt install conntrack -y
+################################################################################################
+
+Phase-02:-
+################################################################################################
+step-01: Initialize the Minikube Cluster 
+I-run:	minikube start --no-driver=none 
+	
+Error1: cri-dockerd not found 
+
+https://github.com/Mirantis/cri-dockerd#build-and-install
+Solution:
+--------------------------------------------------------------------------------------
+	git clone https://github.com/Mirantis/cri-dockerd.git
+# Run these commands as root
+###Install GO###
+wget https://storage.googleapis.com/golang/getgo/installer_linux
+chmod +x ./installer_linux
+./installer_linux
+source ~/.bash_profile
+
+cd cri-dockerd
+mkdir bin
+go build -o bin/cri-dockerd
+mkdir -p /usr/local/bin
+install -o root -g root -m 0755 bin/cri-dockerd /usr/local/bin/cri-dockerd
+cp -a packaging/systemd/* /etc/systemd/system
+sed -i -e 's,/usr/bin/cri-dockerd,/usr/local/bin/cri-dockerd,' /etc/systemd/system/cri-docker.service
+systemctl daemon-reload
+systemctl enable cri-docker.service
+systemctl enable --now cri-docker.socket
+-----------------------------------------------------------------------------------------
+
+II-run: minikube start --vm-driver=none 
+
+Error2: crictl command not found 
+
+https://stackoverflow.com/questions/72864609/x-exiting-due-to-runtime-enable-temporary-error-sudo-crictl-version-exit-stat
+Solution:
+--------------------------------------------------------------------------------------------
+VERSION="v1.25.0"
+wget https://github.com/kubernetes-sigs/cri-tools/releases/download/$VERSION/crictl-$VERSION-linux-amd64.tar.gz
+sudo tar zxvf crictl-$VERSION-linux-amd64.tar.gz -C /usr/local/bin
+rm -f crictl-$VERSION-linux-amd64.tar.gz
+--------------------------------------------------------------------------------------------
+
+III-run: minikube start --vm-driver=none 
+
+Error2: crictl command not found 
+
+{arey what is this ya how many time do I need to trigger ??} 
+
+Solution:
+	mv /usr/local/bin/crictl /usr/bin/crictl
+	
+IV-run: minikube start --vm-driver=none
+
+{ This time you will get success } /congratulation but cinema still pending !!!!
+################################################################################################
+
+Phase-03:-
+################################################################################################
+kubectl get nodes 
+NAME               STATUS   ROLES           AGE   VERSION
+ip-172-31-32-232   NotReady    control-plane   50m   v1.25.3
+
+NotReady state:
+
+kubectl get po -n kube-system 
+kubectl describe po <PodName>  (which is not running) 
+kubectl logs <PodName> 
+
+kubectl describe node <Nodename>
+kubectl describe node 
+
+https://stackoverflow.com/questions/49112336/container-runtime-network-not-ready-cni-config-uninitialized
+
+Solution: 
+kubectl apply -f https://docs.projectcalico.org/manifests/calico-typha.yaml
+
+verify : kubectl get node 
+NAME               STATUS   ROLES           AGE   VERSION
+ip-172-31-32-232   Ready    control-plane   50m   v1.25.3
+
+################################################################################################
+
+Deploy a application and try to access from outside 
+################################################################################################
+kubectl create deployment my-nginx --image=nginx
+kubectl get deployments.apps my-nginx
+kubectl get pods
+
+kubectl expose deployment my-nginx --name=my-nginx-svc --type=NodePort --port=80
+kubectl get svc my-nginx-svc
+
+Now we will try to access the Nginx from outside 
+[ensure that you could open the Port in Firewall(Security group) ]
+
+# kubectl get svc
+NAME           TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)          AGE
+kubernetes     ClusterIP   10.96.0.1        <none>        443/TCP          57m
+my-nginx-svc   NodePort    10.111.105.201   <none>        80:32718/TCP     28m
+
+
+http://PiblicIP:32718
+
+################################################################################################
+
