@@ -5,8 +5,12 @@ Minikube Installation:
 Phase-01:-
 ################################################################################################
 step-01: Update the system 
-	apt update -y
-
+	sudo apt update -y
+	Upgrade the system 
+	sudo upgrade -y 
+	
+	Now reboot the system 
+	sudo reboot
 step-02: Install the Docker 
 	apt install -y docker.io
 
